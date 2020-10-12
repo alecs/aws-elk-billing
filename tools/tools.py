@@ -1,4 +1,5 @@
 import os, sys
+
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 '''
 added head source directory in path for import from any location and relative testing and pwd for open() relative files
@@ -14,12 +15,13 @@ from dateutil.relativedelta import relativedelta
 import subprocess
 import os
 
+
 class Tools:
-    
+
     def __init__(self, s3=None):
         if s3:
             self.bucketname = os.environ['S3_BUCKET_NAME']
-            self.path_name_s3_billing = [ i for i in os.environ['S3_REPORT_PATH'].split('/') if i]
+            self.path_name_s3_billing = [i for i in os.environ['S3_REPORT_PATH'].split('/') if i]
             self.s3_report_name = os.environ['S3_REPORT_NAME']
             self.s3 = s3
         else:
@@ -39,7 +41,7 @@ class Tools:
                 break
             except Exception as e:
                 print(
-                    "Something's wrong with Elasticsearch. Exception is %s" % (e))
+                        "Something's wrong with Elasticsearch. Exception is %s" % (e))
                 print 'I will retry after 4 seconds'
                 connection_ok = True
                 time.sleep(4)
@@ -73,11 +75,12 @@ class Tools:
         elasticsearch_socket.close()
         logstash_socket.close()
         kibana_socket.close()
-        
+
         return connection_ok
 
     def index_template(self):
-        out = subprocess.check_output(['curl -XHEAD -i "elasticsearch:9200/_template/aws_billing"'], shell=True, stderr=subprocess.PIPE)
+        out = subprocess.check_output(['curl -XHEAD -i "elasticsearch:9200/_template/aws_billing"'], shell=True,
+                                      stderr=subprocess.PIPE)
         if '200 OK' not in out:
             status = subprocess.Popen(
                 ['curl -XPUT elasticsearch:9200/_template/aws_billing -d "`cat /aws-elk-billing/aws-billing-es-template.json`"'],
@@ -90,7 +93,8 @@ class Tools:
         else:
             print 'AWS template already exists'
 
-        out = subprocess.check_output(['curl -XHEAD -i "elasticsearch:9200/_template/gcloud_billing"'], shell=True, stderr=subprocess.PIPE)
+        out = subprocess.check_output(['curl -XHEAD -i "elasticsearch:9200/_template/gcloud_billing"'], shell=True,
+                                      stderr=subprocess.PIPE)
         if '200 OK' not in out:
             status = subprocess.Popen(
                 ['curl -XPUT elasticsearch:9200/_template/gcloud_billing -d "`cat /aws-elk-billing/kibana/gcloud-billing-es-template.json`"'],
@@ -105,9 +109,9 @@ class Tools:
 
     def get_s3_bucket_dir_to_index(self):
         key_names = self.s3.list_objects(
-				Bucket=self.bucketname,
-				Prefix='/' + '/'.join(self.path_name_s3_billing) + '/',
-				Delimiter='/')
+            Bucket=self.bucketname,
+            Prefix='/' + '/'.join(self.path_name_s3_billing) + '/',
+            Delimiter='/')
         s3_dir_names = []
         if 'CommonPrefixes' not in key_names:
             return 1
@@ -117,41 +121,41 @@ class Tools:
 
         s3_dir_names.sort()
         es = pyes.ElasticSearch('http://elasticsearch:9200')
-        # index_list = es.get_mapping('aws-billing*').keys()
-        # index_time = []
-        # for i in index_list:
-        #     if i:
-        #         index_time.append(es.search(index=i, size=1, query={"query": {"match_all": {}}})[
-        #                           'hits']['hits'][0]['_source']['@timestamp'])
-        #
-        # index_time.sort(reverse=True)
-        #
-        # dir_start = 0
-        # dir_end = None
-        #
-        # if index_time:
-        #     current_dir = dtd.today().strftime('%Y%m01') + '-' + (dtd.today() + \
-        #                             relativedelta(months=1)).strftime('%Y%m01')
-        #
-        #     last_ind_dir = index_time[0].split('T')[0].replace('-', '')
-        #     last_ind_dir = dtdt.strptime(last_ind_dir, '%Y%m%d').strftime('%Y%m01') + '-' + (
-        #         dtdt.strptime(last_ind_dir, '%Y%m%d') + relativedelta(months=1)).strftime('%Y%m01')
-        #     dir_start = s3_dir_names.index(last_ind_dir)
-        #     dir_end = s3_dir_names.index(current_dir) + 1
-        #
-        # s3_dir_to_index = s3_dir_names[dir_start:dir_end]
-	# Here you can manually specify to parse data that was previously skipped
-	# just uncomment and update dictionary.
-	# s3_dir_to_index = [ "20200901-20201001" ]
-	s3_dir_to_index = [ os.environ.get("AWS_DATE") ]
+        index_list = es.get_mapping('aws-billing*').keys()
+        index_time = []
+        for i in index_list:
+            if i:
+                index_time.append(es.search(index=i, size=1, query={"query": {"match_all": {}}})[
+                                  'hits']['hits'][0]['_source']['@timestamp'])
+
+        index_time.sort(reverse=True)
+
+        dir_start = 0
+        dir_end = None
+
+        if index_time:
+            current_dir = dtd.today().strftime('%Y%m01') + '-' + (dtd.today() + \
+                                    relativedelta(months=1)).strftime('%Y%m01')
+
+            last_ind_dir = index_time[0].split('T')[0].replace('-', '')
+            last_ind_dir = dtdt.strptime(last_ind_dir, '%Y%m%d').strftime('%Y%m01') + '-' + (
+                dtdt.strptime(last_ind_dir, '%Y%m%d') + relativedelta(months=1)).strftime('%Y%m01')
+            dir_start = s3_dir_names.index(last_ind_dir)
+            dir_end = s3_dir_names.index(current_dir) + 1
+
+        s3_dir_to_index = s3_dir_names[dir_start:dir_end]
+        # Here you can manually specify to parse data that was previously skipped
+        # just uncomment and update dictionary.
+        # s3_dir_to_index = [os.environ.get("AWS_DATE")]
         print('Months to be indexed: {}'.format(', '.join(s3_dir_to_index)))
         # returning only the dirnames which are to be indexed
-        return  s3_dir_to_index
-    
+        return s3_dir_to_index
+
     def get_latest_zip_filename(self, monthly_dir_name):
         # monthly_dir_name for aws s3 directory format for getting the correct json file
         # json file name
-        latest_json_file_name = '/' + '/'.join(self.path_name_s3_billing + [monthly_dir_name, self.s3_report_name + '-Manifest.json'])
+        latest_json_file_name = '/' + '/'.join(
+            self.path_name_s3_billing + [monthly_dir_name, self.s3_report_name + '-Manifest.json'])
 
         # download the jsonfile as getfile_$time.json from s3
         print('Downloading {}...'.format(latest_json_file_name))
@@ -170,7 +174,7 @@ class Tools:
     def get_req_csv_from_s3(self, monthly_dir_name, latest_gzip_filename):
         # the local filename formated for compatibility with the go lang code billing_report_yyyy-mm.csv
         local_gz_filename = 'billing_report_' + \
-            dtdt.strptime(monthly_dir_name.split('-')[0], '%Y%m%d').strftime('%Y-%m') + '.csv.gz'
+                            dtdt.strptime(monthly_dir_name.split('-')[0], '%Y%m%d').strftime('%Y-%m') + '.csv.gz'
         local_csv_filename = local_gz_filename[:-3]
 
         # downloading the zipfile from s3
@@ -178,7 +182,8 @@ class Tools:
 
         # upzip and replace the .gz file with .csv file
         print("Extracting latest csv file")
-        process_gunzip = subprocess.Popen(['gunzip -v ' + local_gz_filename], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        process_gunzip = subprocess.Popen(['gunzip -v ' + local_gz_filename], shell=True, stdout=subprocess.PIPE,
+                                          stderr=subprocess.PIPE)
         return local_csv_filename
 
     def index_csv(self, filename, dir_name):
@@ -189,11 +194,12 @@ class Tools:
             dir_name.split('-')[0],
             '%Y%m%d').strftime('%Y.%m')
         os.environ['file_y_m'] = index_format
-	print 'Will process ' + index_format
+        print 'Will process ' + index_format
         # have to change the name of the index in logstash index=>indexname
 
         status = subprocess.Popen(
-            ['curl -XDELETE elasticsearch:9200/aws-billing-' + index_format], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            ['curl -XDELETE elasticsearch:9200/aws-billing-' + index_format], shell=True, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
         if status.wait() != 0:
             print 'I think there are no aws-billing* indice or it is outdated, its OK main golang code will create a new one for you :)'
         else:
@@ -202,7 +208,8 @@ class Tools:
         # Run the main golang code to parse the billing file and send it to
         # Elasticsearch over Logstash
         status = subprocess.Popen(
-            ['go run /aws-elk-billing/main.go --file /aws-elk-billing/' + filename], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            ['go run /aws-elk-billing/main.go --file /aws-elk-billing/' + filename], shell=True, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
         print(status.stdout.read())
         print(status.stderr.read())
         if status.wait() != 0:
@@ -214,14 +221,13 @@ class Tools:
     def index_kibana(self):
         # Index the search mapping for Discover to work 
         status = subprocess.Popen(
-                ['(cd /aws-elk-billing/kibana; bash orchestrate_search_mapping.sh)'],
-                shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            ['(cd /aws-elk-billing/kibana; bash orchestrate_search_mapping.sh)'],
+            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if status.wait() != 0:
             print 'The Discover Search mapping failed to be indexed to .kibana index in Elasticsearch'
             sys.exit(1)
         else:
             print 'The Discover Search mapping sucessfully indexed to .kibana index in Elasticsearch, Kept intact if user already used it :)'
-
 
         # Index Kibana dashboards
         status = subprocess.Popen(
@@ -246,6 +252,8 @@ class Tools:
     def delete_csv_json_files(self):
         # delete all getfile json, csv files and part downloading files after indexing over
         process_delete_csv = subprocess.Popen(
-            ["find /aws-elk-billing -name 'billing_report_*' -exec rm -f {} \;"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            ["find /aws-elk-billing -name 'billing_report_*' -exec rm -f {} \;"], shell=True, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
         process_delete_json = subprocess.Popen(
-            ["find /aws-elk-billing -name 'getfile*' -exec rm -f {} \;"], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            ["find /aws-elk-billing -name 'getfile*' -exec rm -f {} \;"], shell=True, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
